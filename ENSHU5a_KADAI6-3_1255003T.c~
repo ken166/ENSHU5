@@ -1,0 +1,79 @@
+#include <stdio.h>
+#define N 500
+#include <omp.h>
+#include <math.h>
+
+int main(void){
+  int i,j,n,nend;
+  double xleft,xright,ybottom,ytop;
+  double x[N+1],y[N+1],dx;
+  double T[N+1][N+1],TT[N+1][N+1];
+  double c,k,dt,tend;
+
+  xleft=0.0;
+  xright=100.0;
+  ybottom=0.0;
+  ytop=100.0;
+  dx = (xright - xleft)/(double)N;
+
+  c=0.01;
+  k=1.0;
+  dt=0.1*dx*dx;
+  tend = 20.0;
+  nend = (int)tend/dt;
+
+  for(i=0;i<N+1;i++){
+    x[i]=((double)i)*dx;
+    y[i]=((double)i)*dx;
+  }
+
+  for(i=0;i<N+1;i++){
+    for(j=0;j<N+1;j++){
+      if(i==0 || j==0 || i==N || j==N){
+	T[i][j]=30.0;
+	TT[i][j]=30.0;
+      }
+      else
+	T[i][j]=20.0;
+    }
+  }
+
+  
+  for(n=0;n<=nend;n++){
+    
+#pragma omp parallel private(i,j)
+    {
+#pragma omp for
+      for(i=2;i<N-1;i++)
+	for(j=2;j<N-1;j++){
+	  TT[i][j]=T[i][j]+dt*k*(((T[i+2][j]-T[i][j])/2/dx-(T[i][j]-T[i-2][j])/2/dx)/2/dx+
+				 ((T[i][j+2]-T[i][j])/2/dx-(T[i][j]-T[i][j-2])/2/dx)/2/dx)-c*dt;
+	}
+#pragma omp for
+      for(i=1;i<N-1;i++){
+	TT[1][i]=TT[2][i];
+	TT[N-1][i]=TT[N-2][i];
+      }
+#pragma omp for
+      for(i=1;i<N-1;i++){
+	TT[i][1]=TT[i][2];
+	TT[i][N-1]=TT[i][N-2];
+      }
+      TT[1][1]=TT[2][2];
+      TT[N-1][N-1]=TT[N-2][N-2];
+#pragma omp for
+      for(i=0;i<N+1;i++)
+	for(j=0;j<N+1;j++){
+	  T[i][j]=TT[i][j];
+	} 
+    }
+  }
+   
+  for(i=0;i<N+1;i++)
+    for(j=0;j<N+1;j++){
+      if(i==j){
+	printf("%10.5f %10.5f %10.5f\n",x[j],y[i],T[i][j]);
+      }
+    }
+  return 0;
+}
